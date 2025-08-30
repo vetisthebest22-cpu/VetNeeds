@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VetPulse - AI Veterinary Management System</title>
+    <meta name="description" content="Advanced veterinary sound analysis and patient management system">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/speech-commands@0.4.0/dist/speech-commands.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Login/Register Screen */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .auth-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 3rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .auth-logo {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .auth-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #7C3AED;
+            margin-bottom: 0.5rem;
+        }
+
+        .auth-subtitle {
+            color: #6B7280;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #E5E7EB;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #7C3AED;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #7C3AED, #10B981);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(124, 58, 237, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #7C3AED;
+            border: 2px solid #7C3AED;
+        }
+
+        .btn-secondary:hover {
+            background: #7C3AED;
+            color: white;
+        }
+
+        /* Dashboard */
+        .dashboard {
+            display: none;
+        }
+
+        .dashboard.active {
+            display: block;
+        }
+
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .welcome-text {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #7C3AED;
+        }
+
+        .logout-btn {
+            padding: 0.5rem 1rem;
+            background: #EF4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .logout-btn:hover {
+            background: #DC2626;
+        }
+
+        .patients-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .add-patient-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px dashed #7C3AED;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .add-patient-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(124, 58, 237, 0.2);
+        }
+
+        .add-icon {
+            font-size: 3rem;
+            color: #7C3AED;
+            margin-bottom: 1rem;
+        }
+
+        .patient-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .patient-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .patient-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .patient-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .animal-icon {
+            font-size: 2rem;
+        }
+
+        .patient-info {
+            color: #6B7280;
+            margin-bottom: 1rem;
+        }
+
+        .recordings-count {
+            background: #7C3AED;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: inline-block;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #7C3AED;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6B7280;
+        }
+
+        .close-btn:hover {
+            color: #374151;
+        }
+
+        .animal-select {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .animal-option {
+            padding: 1rem;
+            border: 2px solid #E5E7EB;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .animal-option:hover {
+            border-color: #7C3AED;
+        }
+
+        .animal-option.selected {
+            border-color: #7C3AED;
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .animal-emoji {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Analysis Screen */
+        .analysis-screen {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-top: 2rem;
+        }
+
+        .analysis-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .patient-analysis-info {
+            background: rgba(124, 58, 237, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .microphone-container {
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .mic-button {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #7C3AED, #10B981);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3);
+            transition: all 0.3s ease;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .mic-button:hover {
+            transform: scale(1.1);
+        }
+
+        .stop-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1rem auto 0;
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .analysis-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .result-percentage {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #7C3AED;
+            margin-bottom: 0.5rem;
+        }
+
+        .result-label {
+            color: #6B7280;
+            font-weight: 500;
+        }
+
+        .save-recording-section {
+            background: rgba(16, 185, 129, 0.1);
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .recording-timer {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #10B981;
+            margin: 1rem 0;
+        }
+
+        .recordings-list {
+            margin-top: 2rem;
+        }
+
+        .recording-item {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .play-btn {
+            background: #10B981;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+        }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3), 0 0 0 0 rgba(124, 58, 237, 0.4); }
+            50% { box-shadow: 0 10px 30px rgba(124, 58, 237, 0.3), 0 0 0 20px rgba(124, 58, 237, 0); }
+        }
+
+        @media (max-width: 768px) {
+            .patients-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .analysis-results {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Authentication Screen -->
+    <div id="auth-screen" class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo">🩺</div>
+            <h1 class="auth-title">VetPulse</h1>
+            <p class="auth-subtitle">نظام إدارة المرضى البيطريين</p>
+            
+            <form id="auth-form">
+                <div class="form-group">
+                    <label class="form-label">اسم المستخدم</label>
+                    <input type="text" id="username" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">كلمة المرور</label>
+                    <input type="password" id="password" class="form-input" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" id="login-btn">تسجيل الدخول</button>
+                <button type="button" class="btn btn-secondary" id="register-btn">إنشاء حساب جديد</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Dashboard Screen -->
+    <div id="dashboard-screen" class="dashboard container">
+        <div class="dashboard-header">
+            <div>
+                <h1 class="welcome-text">مرحباً، <span id="user-name"></span></h1>
+                <p>إدارة المرضى والتحليل الصوتي</p>
+            </div>
+            <button class="logout-btn" onclick="logout()">تسجيل الخروج</button>
+        </div>
+
+        <div class="patients-grid" id="patients-grid">
+            <div class="add-patient-card" onclick="openAddPatientModal()">
+                <div class="add-icon">➕</div>
+                <h3>إضافة مريض جديد</h3>
+                <p>اضغط لإضافة مريض جديد للنظام</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Patient Modal -->
+    <div id="add-patient-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">إضافة مريض جديد</h2>
+                <button class="close-btn" onclick="closeAddPatientModal()">&times;</button>
+            </div>
+            
+            <form id="patient-form">
+                <div class="form-group">
+                    <label class="form-label">اسم المريض</label>
+                    <input type="text" id="patient-name" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">العمر</label>
+                    <input type="number" id="patient-age" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">نوع الحيوان</label>
+                    <div class="animal-select">
+                        <div class="animal-option" data-animal="cat">
+                            <span class="animal-emoji">🐱</span>
+                            <span>قط</span>
+                        </div>
+                        <div class="animal-option" data-animal="dog">
+                            <span class="animal-emoji">🐕</span>
+                            <span>كلب</span>
+                        </div>
+                        <div class="animal-option" data-animal="bird">
+                            <span class="animal-emoji">🐦</span>
+                            <span>طائر</span>
+                        </div>
+                        <div class="animal-option" data-animal="cow">
+                            <span class="animal-emoji">🐄</span>
+                            <span>بقرة</span>
+                        </div>
+                        <div class="animal-option" data-animal="horse">
+                            <span class="animal-emoji">🐎</span>
+                            <span>حصان</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">إضافة المريض</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Patient Analysis Modal -->
+    <div id="analysis-modal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 class="modal-title">تحليل المريض</h2>
+                <button class="close-btn" onclick="closeAnalysisModal()">&times;</button>
+            </div>
+            
+            <div class="patient-analysis-info">
+                <h3 id="analysis-patient-name"></h3>
+                <p id="analysis-patient-details"></p>
+            </div>
+
+            <div class="analysis-screen">
+                <div class="analysis-header">
+                    <h3>التحليل الصوتي المباشر</h3>
+                    <div id="model-status" class="model-status">🔄 جاري تحميل النموذج...</div>
+                </div>
+
+                <div class="microphone-container">
+                    <button class="mic-button" id="mic-button" onclick="startAnalysis()">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="white">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                        </svg>
+                    </button>
+                    <button class="stop-button" id="stop-button" onclick="stopAnalysis()" style="display: none;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                            <rect x="6" y="6" width="12" height="12" rx="2"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="analysis-results">
+                    <div class="result-card">
+                        <div class="result-percentage" id="noise-result">0%</div>
+                        <div class="result-label">ضوضاء الخلفية</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="result-percentage" id="human-result">0%</div>
+                        <div class="result-label">تنفس بشري</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="result-percentage" id="animal-result">0%</div>
+                        <div class="result-label">تنفس طبيعي</div>
+                    </div>
+                    <div class="result-card">
+                        <div class="result-percentage" id="wheeze-result">0%</div>
+                        <div class="result-label">أزيز تنفسي</div>
+                    </div>
+                </div>
+
+                <div class="save-recording-section" id="save-section" style="display: none;">
+                    <h3>حفظ التسجيل</h3>
+                    <p>سيتم تسجيل 5 ثوانِ من الصوت</p>
+                    <div class="recording-timer" id="recording-timer">5</div>
+                    <button class="btn btn-primary" id="save-recording-btn" onclick="startRecording()">
+                        🎙️ بدء التسجيل والحفظ
+                    </button>
+                </div>
+
+                <div class="recordings-list" id="recordings-list">
+                    <h3>التسجيلات المحفوظة</h3>
+                    <div id="patient-recordings"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentUser = null;
+        let currentPatient = null;
+        let recognizer = null;
+        let isAnalyzing = false;
+        let isRecording = false;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let analysisResults = { noise: 0, human: 0, animal: 0, wheeze: 0 };
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            setupEventListeners();
+            loadAIModel();
+        });
+
+        function initializeApp() {
+            // Check if user is already logged in
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showDashboard();
+            }
+        }
+
+        function setupEventListeners() {
+            // Auth form
+            document.getElementById('auth-form').addEventListener('submit', handleAuth);
+            document.getElementById('register-btn').addEventListener('click', handleRegister);
+            
+            // Patient form
+            document.getElementById('patient-form').addEventListener('submit', handleAddPatient);
+            
+            // Animal selection
+            document.querySelectorAll('.animal-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.animal-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+        }
+
+        // Authentication functions
+        function handleAuth(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
+            
+            if (users[username] && users[username].password === password) {
+                currentUser = { username, ...users[username] };
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                showDashboard();
+            } else {
+                alert('اسم المستخدم أو كلمة المرور غير صحيحة');
+            }
+        }
+
+        function handleRegister() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            if (!username || !password) {
+                alert('يرجى إدخال اسم المستخدم وكلمة المرور');
+                return;
+            }
+            
+            const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
+            
+            if (users[username]) {
+                alert('اسم المستخدم موجود بالفعل');
+                return;
+            }
+            
+            users[username] = {
+                password: password,
+                patients: {},
+                createdAt: new Date().toISOString()
+            };
+            
+            localStorage.setItem('vetpulse_users', JSON.stringify(users));
+            alert('تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول');
+        }
+
+        function logout() {
+            localStorage.removeItem('currentUser');
+            currentUser = null;
+            document.getElementById('auth-screen').style.display = 'flex';
+            document.getElementById('dashboard-screen').classList.remove('active');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        function showDashboard() {
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('dashboard-screen').classList.add('active');
+            document.getElementById('user-name').textContent = currentUser.username;
+            loadPatients();
+        }
+
+        // Patient management functions
+        function loadPatients() {
+            const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
+            const userPatients = users[currentUser.username]?.patients || {};
+            
+            const patientsGrid = document.getElementById('patients-grid');
+            
+            // Clear existing patient cards (keep add button)
+            const addCard = patientsGrid.querySelector('.add-patient-card');
+            patientsGrid.innerHTML = '';
+            patientsGrid.appendChild(addCard);
+            
+            // Add patient cards
+            Object.keys(userPatients).forEach(patientId => {
+                const patient = userPatients[patientId];
+                const patientCard = createPatientCard(patientId, patient);
+                patientsGrid.appendChild(patientCard);
+            });
+        }
+
+        function createPatientCard(patientId, patient) {
+            const card = document.createElement('div');
+            card.className = 'patient-card';
+            card.onclick = () => openPatientAnalysis(patientId, patient);
+            
+            const animalIcons = {
+                cat: '🐱',
+                dog: '🐕',
+                bird: '🐦',
+                cow: '🐄',
+                horse: '🐎'
+            };
+            
+            const recordingsCount = patient.recordings ? Object.keys(patient.recordings).length : 0;
+            
+            card.innerHTML = `
+                <div class="patient-header">
+                    <div class="patient-name">${patient.name}</div>
+                    <div class="animal-icon">${animalIcons[patient.animal]}</div>
+                </div>
+                <div class="patient-info">
+                    العمر: ${patient.age} • النوع: ${getAnimalName(patient.animal)}
+                </div>
+                <div class="recordings-count">${recordingsCount} تسجيل</div>
+            `;
+            
+            return card;
+        }
+
+        function getAnimalName(animal) {
+            const names = {
+                cat: 'قط',
+                dog: 'كلب',
+                bird: 'طائر',
+                cow: 'بقرة',
+                horse: 'حصان'
+            };
+            return names[animal] || animal;
+        }
+
+        function openAddPatientModal() {
+            document.getElementById('add-patient-modal').classList.add('active');
+        }
+
+        function closeAddPatientModal() {
+            document.getElementById('add-patient-modal').classList.remove('active');
+            document.getElementById('patient-form').reset();
+            document.querySelectorAll('.animal-option').forEach(opt => opt.classList.remove('selected'));
+        }
+
+        function handleAddPatient(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('patient-name').value;
+            const age = document.getElementById('patient-age').value;
+            const selectedAnimal = document.querySelector('.animal-option.selected');
+            
+            if (!selectedAnimal) {
+                alert('يرجى اختيار نوع الحيوان');
+                return;
+            }
+            
+            const animal = selectedAnimal.dataset.animal;
+            const patientId = Date.now().toString();
+            
+            const patient = {
+                name,
+                age: parseInt(age),
+                animal,
+                createdAt: new Date().toISOString(),
+                recordings: {}
+            };
+            
+            // Save to localStorage
+            const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
+            if (!users[currentUser.username].patients) {
+                users[currentUser.username].patients = {};
+            }
+            users[currentUser.username].patients[patientId] = patient;
+            localStorage.setItem('vetpulse_users', JSON.stringify(users));
+            
+            closeAddPatientModal();
+            loadPatients();
+        }
+
+        // Analysis functions
+        function openPatientAnalysis(patientId, patient) {
+            currentPatient = { id: patientId, ...patient };
+            document.getElementById('analysis-patient-name').textContent = patient.name;
+            document.getElementById('analysis-patient-details').textContent = 
+                `العمر: ${patient.age} • النوع: ${getAnimalName(patient.animal)}`;
+            
+            document.getElementById('analysis-modal').classList.add('active');
+            loadPatientRecordings();
+        }
+
+        function closeAnalysisModal() {
+            document.getElementById('analysis-modal').classList.remove('active');
+            if (isAnalyzing) {
+                stopAnalysis();
+            }
+            currentPatient = null;
+        }
+
+        async function loadAIModel() {
+            try {
+                const checkpointURL = "https://vetisthebest22-cpu.github.io/VetEar/my_model/model.json";
+                const metadataURL = "https://vetisthebest22-cpu.github.io/VetEar/my_model/metadata.json";
+
+                console.log("🚀 Loading AI model from GitHub Pages");
+
+                recognizer = speechCommands.create(
+                    "BROWSER_FFT",
+                    undefined,
+                    checkpointURL,
+                    metadataURL
+                );
+
+                await recognizer.ensureModelLoaded();
+                console.log("✅ AI Model loaded successfully!");
+                
+                const statusElement = document.getElementById('model-status');
+                if (statusElement) {
+                    statusElement.textContent = "🤖 النموذج جاهز للتحليل";
+                    statusElement.style.background = "rgba(16, 185, 129, 0.1)";
+                    statusElement.style.color = "#065F46";
+                }
+            } catch (error) {
+                console.error("❌ Model loading failed:", error);
+                const statusElement = document.getElementById('model-status');
+                if (statusElement) {
+                    statusElement.textContent = "❌ فشل في تحميل النموذج";
+                    statusElement.style.background = "rgba(239, 68, 68, 0.1)";
+                    statusElement.style.color = "#991B1B";
+                }
+            }
+        }
+
+        function startAnalysis() {
+            if (isAnalyzing || !recognizer) return;
+            
+            isAnalyzing = true;
+            document.getElementById('mic-button').style.display = 'none';
+            document.getElementById('stop-button').style.display = 'flex';
+            document.getElementById('save-section').style.display = 'block';
+            
+            recognizer.listen(result => {
+                const scores = result.scores;
+                const labels = recognizer.wordLabels();
+                
+                analysisResults = mapAIResultsToUI(labels, scores);
+                
+                document.getElementById('noise-result').textContent = Math.round(analysisResults.noise * 100) + '%';
+                document.getElementById('human-result').textContent = Math.round(analysisResults.human * 100) + '%';
+                document.getElementById('animal-result').textContent = Math.round(analysisResults.animal * 100) + '%';
+                document.getElementById('wheeze-result').textContent = Math.round(analysisResults.wheeze * 100) + '%';
+                
+            }, {
+                includeSpectrogram: true,
+                probabilityThreshold: 0.75,
+                invokeCallbackOnNoiseAndUnknown: true,
+                overlapFactor: 0.50
+            });
+        }
+
+        function stopAnalysis() {
+            if (!isAnalyzing) return;
+            
+            isAnalyzing = false;
+            document.getElementById('mic-button').style.display = 'flex';
+            document.getElementById('stop-button').style.display = 'none';
+            
+            if (recognizer) {
+                recognizer.stopListening();
+            }
+        }
+
+        function mapAIResultsToUI(labels, scores) {
+            let results = { noise: 0, human: 0, animal: 0, wheeze: 0 };
+            
+            for (let i = 0; i < labels.length; i++) {
+                const label = labels[i].toLowerCase().trim();
+                const score = scores[i];
+                
+                if (label.includes('noise') || label.includes('background') || label.includes('silence')) {
+                    results.noise = Math.max(results.noise, score);
+                } else if (label.includes('human') || label.includes('person') || label.includes('voice')) {
+                    results.human = Math.max(results.human, score);
+                } else if (label.includes('animal') || label.includes('normal') || label.includes('healthy')) {
+                    results.animal = Math.max(results.animal, score);
+                } else if (label.includes('wheeze') || label.includes('distress') || label.includes('abnormal')) {
+                    results.wheeze = Math.max(results.wheeze, score);
+                }
+            }
+            
+            return results;
+        }
+
+        // Recording functions
+        async function startRecording() {
+            if (isRecording) return;
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                recordedChunks = [];
+                
+                mediaRecorder.ondataavailable = function(event) {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = function() {
+                    const blob = new Blob(recordedChunks, { type: 'audio/wav' });
+                    saveRecording(blob);
+                };
+                
+                isRecording = true;
+                mediaRecorder.start();
+                
+                // 5 second countdown
+                let countdown = 5;
+                const timerElement = document.getElementById('recording-timer');
+                const saveBtn = document.getElementById('save-recording-btn');
+                
+                saveBtn.textContent = 'جاري التسجيل...';
+                saveBtn.disabled = true;
+                
+                const timer = setInterval(() => {
+                    countdown--;
+                    timerElement.textContent = countdown;
+                    
+                    if (countdown <= 0) {
+                        clearInterval(timer);
+                        mediaRecorder.stop();
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                        isRecording = false;
+                        saveBtn.textContent = '🎙️ بدء التسجيل والحفظ';
+                        saveBtn.disabled = false;
+                        timerElement.textContent = '5';
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                alert('لا يمكن الوصول للميكروفون');
+            }
+        }
+
+        function saveRecording(audioBlob) {
+            const recordingId = Date.now().toString();
+            const recording = {
+                id: recordingId,
+                timestamp: new Date().toISOString(),
+                analysis: { ...analysisResults },
+                audioData: null // We'll store a placeholder since we can't store actual audio in localStorage
+            };
+            
+            // Save to localStorage
+            const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
+            if (!users[currentUser.username].patients[currentPatient.id].recordings) {
+                users[currentUser.username].patients[currentPatient.id].recordings = {};
+            }
+            users[currentUser.username].patients[currentPatient.id].recordings[recordingId] = recording;
+            localStorage.setItem('vetpulse_users', JSON.stringify(users));
+            
+            // Update current patient data
+            currentPatient.recordings = users[currentUser.username].patients[currentPatient.id].recordings;
+            
+            loadPatientRecordings();
+            alert('تم حفظ التسجيل بنجاح!');
+        }
+
+        function loadPatientRecordings() {
+            const recordingsContainer = document.getElementById('patient-recordings');
+            recordingsContainer.innerHTML = '';
+            
+            if (!currentPatient.recordings || Object.keys(currentPatient.recordings).length === 0) {
+                recordingsContainer.innerHTML = '<p style="text-align: center; color: #6B7280;">لا توجد تسجيلات محفوظة</p>';
+                return;
+            }
+            
+            Object.keys(currentPatient.recordings).forEach(recordingId => {
+                const recording = currentPatient.recordings[recordingId];
+                const recordingElement = createRecordingElement(recordingId, recording);
+                recordingsContainer.appendChild(recordingElement);
+            });
+        }
+
+        function createRecordingElement(recordingId, recording) {
+            const element = document.createElement('div');
+            element.className = 'recording-item';
+            
+            const date = new Date(recording.timestamp).toLocaleString('ar-SA');
+            const analysis = recording.analysis;
+            
+            element.innerHTML = `
+                <div>
+                    <strong>تسجيل ${date}</strong><br>
+                    <small>
+                        ضوضاء: ${Math.round(analysis.noise * 100)}% | 
+                        بشري: ${Math.round(analysis.human * 100)}% | 
+                        طبيعي: ${Math.round(analysis.animal * 100)}% | 
+                        أزيز: ${Math.round(analysis.wheeze * 100)}%
+                    </small>
+                </div>
+                <button class="play-btn" onclick="deleteRecording('${recordingId}')">حذف</button>
+            `;
+            
+            return element;
+        }
+
+        function deleteRecording(recordingId) {
+            if (!confirm('هل أنت متأكد من حذف هذا التسجيل؟')) return;
+            
+            const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
+            delete users[currentUser.username].patients[currentPatient.id].recordings[recordingId];
+            localStorage.setItem('vetpulse_users', JSON.stringify(users));
+            
+            // Update current patient data
+            currentPatient.recordings = users[currentUser.username].patients[currentPatient.id].recordings;
+            
+            loadPatientRecordings();
+        }
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9770a0fff5d032ae',t:'MTc1NjUxODUzOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
