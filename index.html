@@ -636,6 +636,9 @@
                 
                 <button type="submit" class="btn btn-primary" id="login-btn">تسجيل الدخول</button>
                 <button type="button" class="btn btn-secondary" id="register-btn">إنشاء حساب جديد</button>
+                <button type="button" class="btn" id="admin-quick-login" onclick="quickAdminLogin()" style="background: linear-gradient(135deg, #EF4444, #DC2626); color: white; margin-top: 1rem;">
+                    🛡️ دخول سريع للأدمن
+                </button>
             </form>
         </div>
     </div>
@@ -886,17 +889,20 @@
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             
-            console.log('Login attempt:', username, password); // للتشخيص
+            console.log('🔍 محاولة تسجيل دخول:', username); // للتشخيص
             
             // Check for admin login - تحقق دقيق من بيانات الأدمن
             if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-                console.log('Admin login successful'); // للتشخيص
+                console.log('✅ تم تسجيل دخول الأدمن بنجاح!'); // للتشخيص
                 currentUser = { 
                     username: ADMIN_USERNAME, 
                     isAdmin: true,
                     loginTime: new Date().toISOString()
                 };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                
+                // إظهار رسالة ترحيب للأدمن
+                alert('🛡️ مرحباً أدمن! تم تسجيل الدخول بنجاح');
                 showAdminPanel();
                 return;
             }
@@ -914,7 +920,7 @@
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 showDashboard();
             } else {
-                alert('اسم المستخدم أو كلمة المرور غير صحيحة');
+                alert('❌ اسم المستخدم أو كلمة المرور غير صحيحة\n\nللدخول كأدمن:\nاسم المستخدم: Odai admin\nكلمة المرور: Od022307!');
             }
         }
 
@@ -1479,8 +1485,23 @@
             
             loadPatientRecordings();
         }
+
+        // Quick admin login function
+        function quickAdminLogin() {
+            document.getElementById('username').value = ADMIN_USERNAME;
+            document.getElementById('password').value = ADMIN_PASSWORD;
+            
+            // تسجيل دخول تلقائي
+            currentUser = { 
+                username: ADMIN_USERNAME, 
+                isAdmin: true,
+                loginTime: new Date().toISOString()
+            };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            
+            alert('🛡️ تم تسجيل دخول الأدمن بنجاح!');
+            showAdminPanel();
+        }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9770bfac655a32ae',t:'MTc1NjUxOTc5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9770c3a4b73932ae',t:'MTc1NjUxOTk1Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
-
-
