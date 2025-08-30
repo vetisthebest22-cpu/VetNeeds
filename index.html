@@ -839,7 +839,7 @@
         let analysisResults = { noise: 0, human: 0, animal: 0, wheeze: 0 };
         let isAdminMode = false;
 
-        // Admin credentials (في التطبيق الحقيقي، يجب أن تكون مشفرة)
+        // Admin credentials
         const ADMIN_USERNAME = "Odai admin";
         const ADMIN_PASSWORD = "Od022307!";
 
@@ -855,7 +855,7 @@
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
-                if (currentUser.username === "Odai admin") {
+                if (currentUser.username === ADMIN_USERNAME) {
                     showAdminPanel();
                 } else {
                     showDashboard();
@@ -883,21 +883,34 @@
         // Authentication functions
         function handleAuth(e) {
             e.preventDefault();
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             
-            // Check for admin login
-            if (username === "Odai admin" && password === "Od022307!") {
-                currentUser = { username: "Odai admin", isAdmin: true };
+            console.log('Login attempt:', username, password); // للتشخيص
+            
+            // Check for admin login - تحقق دقيق من بيانات الأدمن
+            if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+                console.log('Admin login successful'); // للتشخيص
+                currentUser = { 
+                    username: ADMIN_USERNAME, 
+                    isAdmin: true,
+                    loginTime: new Date().toISOString()
+                };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 showAdminPanel();
                 return;
             }
             
+            // Regular user login
             const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
             
             if (users[username] && users[username].password === password) {
-                currentUser = { username, ...users[username] };
+                currentUser = { 
+                    username, 
+                    ...users[username], 
+                    isAdmin: false,
+                    loginTime: new Date().toISOString()
+                };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 showDashboard();
             } else {
@@ -906,7 +919,7 @@
         }
 
         function handleRegister() {
-            const username = document.getElementById('username').value;
+            const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
             
             if (!username || !password) {
@@ -914,7 +927,7 @@
                 return;
             }
             
-            if (username === "Odai admin") {
+            if (username === ADMIN_USERNAME) {
                 alert('لا يمكن استخدام هذا الاسم');
                 return;
             }
@@ -944,6 +957,7 @@
             document.getElementById('auth-screen').style.display = 'flex';
             document.getElementById('dashboard-screen').classList.remove('active');
             document.getElementById('admin-panel').classList.remove('active');
+            document.getElementById('admin-toggle').style.display = 'none';
             document.getElementById('username').value = '';
             document.getElementById('password').value = '';
         }
@@ -953,8 +967,15 @@
             document.getElementById('dashboard-screen').classList.add('active');
             document.getElementById('admin-panel').classList.remove('active');
             document.getElementById('user-name').textContent = currentUser.username;
-            // إخفاء زر الأدمن نهائياً للمستخدمين العاديين
-            document.getElementById('admin-toggle').style.display = 'none';
+            
+            // إظهار زر الأدمن فقط للأدمن
+            if (currentUser.username === ADMIN_USERNAME && currentUser.isAdmin) {
+                document.getElementById('admin-toggle').style.display = 'block';
+            } else {
+                document.getElementById('admin-toggle').style.display = 'none';
+            }
+            
+            isAdminMode = false;
             loadPatients();
         }
 
@@ -969,25 +990,24 @@
 
         // Admin Panel Functions
         function toggleAdminPanel() {
-            // التحقق المضاعف من صلاحيات الأدمن
-            if (currentUser && currentUser.isAdmin && currentUser.username === "Odai admin") {
+            console.log('Toggle admin panel called', currentUser); // للتشخيص
+            
+            // التحقق من صلاحيات الأدمن
+            if (currentUser && currentUser.username === ADMIN_USERNAME && currentUser.isAdmin) {
                 if (isAdminMode) {
                     showDashboard();
-                    isAdminMode = false;
                 } else {
                     showAdminPanel();
-                    isAdminMode = true;
                 }
             } else {
-                // إذا حاول أي شخص آخر الوصول، يتم تسجيل خروجه فوراً
                 alert('غير مسموح لك بالوصول لهذه الصفحة!');
                 logout();
             }
         }
 
         function loadAdminData() {
-            // التحقق من صلاحيات الأدمن قبل تحميل البيانات
-            if (!currentUser || !currentUser.isAdmin || currentUser.username !== "Odai admin") {
+            // التحقق من صلاحيات الأدمن
+            if (!currentUser || currentUser.username !== ADMIN_USERNAME || !currentUser.isAdmin) {
                 alert('غير مسموح لك بالوصول لبيانات النظام!');
                 logout();
                 return;
@@ -1065,8 +1085,8 @@
         }
 
         function viewUserDetails(username) {
-            // التحقق من صلاحيات الأدمن قبل عرض البيانات
-            if (!currentUser || !currentUser.isAdmin || currentUser.username !== "Odai admin") {
+            // التحقق من صلاحيات الأدمن
+            if (!currentUser || currentUser.username !== ADMIN_USERNAME || !currentUser.isAdmin) {
                 alert('غير مسموح لك بالوصول لهذه البيانات!');
                 logout();
                 return;
@@ -1094,8 +1114,8 @@
         }
 
         function deleteUser(username) {
-            // التحقق من صلاحيات الأدمن قبل الحذف
-            if (!currentUser || !currentUser.isAdmin || currentUser.username !== "Odai admin") {
+            // التحقق من صلاحيات الأدمن
+            if (!currentUser || currentUser.username !== ADMIN_USERNAME || !currentUser.isAdmin) {
                 alert('غير مسموح لك بحذف المستخدمين!');
                 logout();
                 return;
@@ -1460,6 +1480,7 @@
             loadPatientRecordings();
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9770b53a246e32ae',t:'MTc1NjUxOTM2Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9770bfac655a32ae',t:'MTc1NjUxOTc5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
+
 
