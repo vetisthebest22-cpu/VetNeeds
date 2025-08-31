@@ -875,77 +875,99 @@
 
         // Visitor tracking function
         function trackVisitor(username = null) {
-            const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
-            const visitTime = new Date();
-            
-            // Create unique identifier for device/user combination
-            const deviceFingerprint = generateDeviceFingerprint();
-            const visitorKey = username ? `user_${username}` : `device_${deviceFingerprint}`;
-            
-            // Check if this visitor already exists
-            const existingVisitor = visitors.find(v => v.visitorKey === visitorKey);
-            
-            if (existingVisitor) {
-                // Update last visit time for existing visitor
-                existingVisitor.lastVisit = visitTime.toISOString();
-                existingVisitor.lastVisitFormatted = visitTime.toLocaleString('ar-SA');
-                existingVisitor.visitCount = (existingVisitor.visitCount || 1) + 1;
+            try {
+                const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
+                const visitTime = new Date();
                 
+                // Create unique identifier for device/user combination
+                const deviceFingerprint = generateDeviceFingerprint();
+                const visitorKey = username ? `user_${username}` : `device_${deviceFingerprint}`;
+                
+                console.log('🔍 تتبع الزائر:', { username, deviceFingerprint, visitorKey });
+                
+                // Check if this visitor already exists
+                const existingVisitorIndex = visitors.findIndex(v => v.visitorKey === visitorKey);
+                
+                if (existingVisitorIndex !== -1) {
+                    // Update existing visitor
+                    visitors[existingVisitorIndex].lastVisit = visitTime.toISOString();
+                    visitors[existingVisitorIndex].lastVisitFormatted = visitTime.toLocaleString('ar-SA');
+                    visitors[existingVisitorIndex].visitCount = (visitors[existingVisitorIndex].visitCount || 1) + 1;
+                    visitors[existingVisitorIndex].timestamp = visitTime.toISOString(); // Update timestamp for sorting
+                    
+                    localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
+                    console.log('🔄 تحديث زيارة موجودة:', username ? `المستخدم: ${username}` : 'زائر مجهول', `الزيارة رقم: ${visitors[existingVisitorIndex].visitCount}`);
+                    return;
+                }
+                
+                // Get device type
+                const userAgent = navigator.userAgent;
+                let deviceType = 'كمبيوتر';
+                let deviceIcon = '💻';
+                
+                if (/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+                    deviceType = 'موبايل';
+                    deviceIcon = '📱';
+                } else if (/Tablet|iPad/i.test(userAgent)) {
+                    deviceType = 'تابلت';
+                    deviceIcon = '📱';
+                }
+                
+                // Get browser info
+                let browserName = 'غير محدد';
+                if (userAgent.includes('Chrome')) browserName = 'Chrome';
+                else if (userAgent.includes('Firefox')) browserName = 'Firefox';
+                else if (userAgent.includes('Safari')) browserName = 'Safari';
+                else if (userAgent.includes('Edge')) browserName = 'Edge';
+                
+                // Create new visitor info
+                const visitorInfo = {
+                    id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9),
+                    visitorKey: visitorKey,
+                    deviceFingerprint: deviceFingerprint,
+                    firstVisit: visitTime.toISOString(),
+                    lastVisit: visitTime.toISOString(),
+                    timestamp: visitTime.toISOString(),
+                    date: visitTime.toLocaleDateString('ar-SA'),
+                    time: visitTime.toLocaleTimeString('ar-SA'),
+                    fullDateTime: visitTime.toLocaleString('ar-SA'),
+                    lastVisitFormatted: visitTime.toLocaleString('ar-SA'),
+                    username: username || 'زائر مجهول',
+                    userType: username ? 'مستخدم مسجل' : 'زائر مجهول',
+                    deviceType: deviceType,
+                    deviceIcon: deviceIcon,
+                    browserName: browserName,
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    platform: navigator.platform,
+                    screenResolution: `${screen.width}x${screen.height}`,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    referrer: document.referrer || 'مباشر',
+                    visitCount: 1
+                };
+                
+                visitors.push(visitorInfo);
                 localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
-                console.log('🔄 تحديث زيارة موجودة:', username ? `المستخدم: ${username}` : 'زائر مجهول', `الزيارة رقم: ${existingVisitor.visitCount}`);
-                return;
+                
+                console.log('✅ تم تسجيل زائر جديد:', username ? `المستخدم: ${username}` : 'زائر مجهول', visitorInfo.fullDateTime);
+                console.log('📊 إجمالي الزوار الآن:', visitors.length);
+                
+            } catch (error) {
+                console.error('❌ خطأ في تتبع الزائر:', error);
+                // Fallback: create simple visitor record
+                const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
+                const simpleVisitor = {
+                    id: Date.now().toString(),
+                    username: username || 'زائر مجهول',
+                    timestamp: new Date().toISOString(),
+                    fullDateTime: new Date().toLocaleString('ar-SA'),
+                    deviceType: 'غير محدد',
+                    browserName: 'غير محدد',
+                    visitCount: 1
+                };
+                visitors.push(simpleVisitor);
+                localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
             }
-            
-            // Get device type
-            const userAgent = navigator.userAgent;
-            let deviceType = 'كمبيوتر';
-            let deviceIcon = '💻';
-            
-            if (/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
-                deviceType = 'موبايل';
-                deviceIcon = '📱';
-            } else if (/Tablet|iPad/i.test(userAgent)) {
-                deviceType = 'تابلت';
-                deviceIcon = '📱';
-            }
-            
-            // Get browser info
-            let browserName = 'غير محدد';
-            if (userAgent.includes('Chrome')) browserName = 'Chrome';
-            else if (userAgent.includes('Firefox')) browserName = 'Firefox';
-            else if (userAgent.includes('Safari')) browserName = 'Safari';
-            else if (userAgent.includes('Edge')) browserName = 'Edge';
-            
-            // Create new visitor info
-            const visitorInfo = {
-                id: Date.now().toString(),
-                visitorKey: visitorKey,
-                deviceFingerprint: deviceFingerprint,
-                firstVisit: visitTime.toISOString(),
-                lastVisit: visitTime.toISOString(),
-                timestamp: visitTime.toISOString(),
-                date: visitTime.toLocaleDateString('ar-SA'),
-                time: visitTime.toLocaleTimeString('ar-SA'),
-                fullDateTime: visitTime.toLocaleString('ar-SA'),
-                lastVisitFormatted: visitTime.toLocaleString('ar-SA'),
-                username: username || 'زائر مجهول',
-                userType: username ? 'مستخدم مسجل' : 'زائر مجهول',
-                deviceType: deviceType,
-                deviceIcon: deviceIcon,
-                browserName: browserName,
-                userAgent: navigator.userAgent,
-                language: navigator.language,
-                platform: navigator.platform,
-                screenResolution: `${screen.width}x${screen.height}`,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                referrer: document.referrer || 'مباشر',
-                visitCount: 1
-            };
-            
-            visitors.push(visitorInfo);
-            localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
-            
-            console.log('🔍 تم تسجيل زائر جديد:', username ? `المستخدم: ${username}` : 'زائر مجهول', visitorInfo.fullDateTime);
         }
 
         // Generate device fingerprint for unique identification
@@ -1297,72 +1319,93 @@
             const tbody = document.getElementById('visitors-table-body');
             tbody.innerHTML = '';
             
-            // Sort visitors by timestamp (newest first)
-            const sortedVisitors = visitors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            console.log('📊 تحميل جدول الزوار:', visitors.length, 'زائر');
             
-            sortedVisitors.forEach(visitor => {
-                const row = document.createElement('tr');
-                
-                // Get user info
-                const username = visitor.username || 'زائر مجهول';
-                const userType = visitor.userType || 'زائر مجهول';
-                const deviceIcon = visitor.deviceIcon || '💻';
-                const deviceType = visitor.deviceType || 'كمبيوتر';
-                const browserName = visitor.browserName || 'غير محدد';
-                
-                // User type styling
-                const userTypeColor = username === 'زائر مجهول' ? '#EF4444' : 
-                                    username === 'Odai admin' ? '#7C3AED' : '#10B981';
-                const userTypeIcon = username === 'زائر مجهول' ? '👤' : 
-                                   username === 'Odai admin' ? '🛡️' : '👨‍💼';
-                
-                // Show visit count and last visit info
-                const visitCount = visitor.visitCount || 1;
-                const firstVisit = visitor.firstVisit ? new Date(visitor.firstVisit).toLocaleString('ar-SA') : visitor.fullDateTime;
-                const lastVisit = visitor.lastVisitFormatted || visitor.fullDateTime;
-                
-                row.innerHTML = `
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.2rem;">${userTypeIcon}</span>
-                            <div>
-                                <strong style="color: ${userTypeColor};">${username}</strong><br>
-                                <small style="color: #6B7280;">${userType}</small>
-                                ${visitCount > 1 ? `<br><span style="background: #10B981; color: white; padding: 0.1rem 0.3rem; border-radius: 10px; font-size: 0.7rem;">${visitCount} زيارة</span>` : ''}
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <strong>آخر زيارة:</strong><br>
-                        <span style="color: #10B981;">${lastVisit}</span><br>
-                        ${visitCount > 1 ? `<small style="color: #6B7280;">أول زيارة: ${firstVisit}</small>` : ''}
-                    </td>
-                    <td>
-                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.2rem;">${deviceIcon}</span>
-                            <div>
-                                <strong>${deviceType}</strong><br>
-                                <small style="color: #6B7280;">${visitor.platform || 'غير محدد'}</small>
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <strong>${browserName}</strong><br>
-                        <small style="color: #6B7280;">${visitor.language}</small>
-                    </td>
-                    <td>${visitor.screenResolution}</td>
-                    <td>
-                        <small style="color: #6B7280;">${visitor.timezone}</small>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-            
-            if (visitors.length === 0) {
+            if (!visitors || visitors.length === 0) {
                 const row = document.createElement('tr');
                 row.innerHTML = '<td colspan="6" style="text-align: center; color: #6B7280;">لا توجد زيارات مسجلة</td>';
                 tbody.appendChild(row);
+                return;
             }
+            
+            // Sort visitors by timestamp (newest first)
+            const sortedVisitors = visitors.sort((a, b) => {
+                const timeA = new Date(a.timestamp || a.firstVisit || 0);
+                const timeB = new Date(b.timestamp || b.firstVisit || 0);
+                return timeB - timeA;
+            });
+            
+            sortedVisitors.forEach((visitor, index) => {
+                try {
+                    const row = document.createElement('tr');
+                    
+                    // Get user info with fallbacks
+                    const username = visitor.username || 'زائر مجهول';
+                    const userType = visitor.userType || 'زائر مجهول';
+                    const deviceIcon = visitor.deviceIcon || '💻';
+                    const deviceType = visitor.deviceType || 'كمبيوتر';
+                    const browserName = visitor.browserName || 'غير محدد';
+                    const platform = visitor.platform || 'غير محدد';
+                    const language = visitor.language || 'غير محدد';
+                    const screenResolution = visitor.screenResolution || 'غير محدد';
+                    const timezone = visitor.timezone || 'غير محدد';
+                    
+                    // User type styling
+                    const userTypeColor = username === 'زائر مجهول' ? '#EF4444' : 
+                                        username === 'Odai admin' ? '#7C3AED' : '#10B981';
+                    const userTypeIcon = username === 'زائر مجهول' ? '👤' : 
+                                       username === 'Odai admin' ? '🛡️' : '👨‍💼';
+                    
+                    // Show visit count and last visit info
+                    const visitCount = visitor.visitCount || 1;
+                    const firstVisit = visitor.firstVisit ? 
+                        new Date(visitor.firstVisit).toLocaleString('ar-SA') : 
+                        (visitor.fullDateTime || 'غير محدد');
+                    const lastVisit = visitor.lastVisitFormatted || 
+                        visitor.fullDateTime || 
+                        new Date(visitor.timestamp || Date.now()).toLocaleString('ar-SA');
+                    
+                    row.innerHTML = `
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 1.2rem;">${userTypeIcon}</span>
+                                <div>
+                                    <strong style="color: ${userTypeColor};">${username}</strong><br>
+                                    <small style="color: #6B7280;">${userType}</small>
+                                    ${visitCount > 1 ? `<br><span style="background: #10B981; color: white; padding: 0.1rem 0.3rem; border-radius: 10px; font-size: 0.7rem;">${visitCount} زيارة</span>` : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <strong>آخر زيارة:</strong><br>
+                            <span style="color: #10B981;">${lastVisit}</span><br>
+                            ${visitCount > 1 ? `<small style="color: #6B7280;">أول زيارة: ${firstVisit}</small>` : ''}
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 1.2rem;">${deviceIcon}</span>
+                                <div>
+                                    <strong>${deviceType}</strong><br>
+                                    <small style="color: #6B7280;">${platform}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <strong>${browserName}</strong><br>
+                            <small style="color: #6B7280;">${language}</small>
+                        </td>
+                        <td>${screenResolution}</td>
+                        <td>
+                            <small style="color: #6B7280;">${timezone}</small>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                } catch (error) {
+                    console.error('❌ خطأ في عرض زائر:', error, visitor);
+                }
+            });
+            
+            console.log('✅ تم تحميل جدول الزوار بنجاح');
         }
 
         function exportVisitors() {
@@ -1768,5 +1811,5 @@
             loadPatientRecordings();
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977e6a32704632ae',t:'MTc1NjY2MzA5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977e715b34cb32ae',t:'MTc1NjY2MzM4Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
