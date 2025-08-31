@@ -680,8 +680,16 @@
                 <div class="stat-label">إجمالي التسجيلات</div>
             </div>
             <div class="stat-card">
+                <div class="stat-number" id="total-visitors">0</div>
+                <div class="stat-label">إجمالي الزوار</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-number" id="active-today">0</div>
                 <div class="stat-label">نشط اليوم</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="visitors-today">0</div>
+                <div class="stat-label">زوار اليوم</div>
             </div>
         </div>
 
@@ -700,6 +708,31 @@
                 <tbody id="users-table-body">
                 </tbody>
             </table>
+        </div>
+
+        <div class="users-table" style="margin-top: 2rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2>سجل الزوار</h2>
+                <div>
+                    <button class="btn-small btn-view" onclick="exportVisitors()" style="margin-left: 0.5rem;">تصدير</button>
+                    <button class="btn-small btn-delete" onclick="clearVisitors()">مسح الكل</button>
+                </div>
+            </div>
+            <div style="max-height: 400px; overflow-y: auto;">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>التاريخ والوقت</th>
+                            <th>المنصة</th>
+                            <th>الدقة</th>
+                            <th>المنطقة الزمنية</th>
+                            <th>المصدر</th>
+                        </tr>
+                    </thead>
+                    <tbody id="visitors-table-body">
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -839,12 +872,39 @@
         let analysisResults = { noise: 0, human: 0, animal: 0, wheeze: 0 };
         let isAdminMode = false;
 
+        // Visitor tracking function
+        function trackVisitor() {
+            const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
+            const visitTime = new Date();
+            
+            // Get visitor info
+            const visitorInfo = {
+                id: Date.now().toString(),
+                timestamp: visitTime.toISOString(),
+                date: visitTime.toLocaleDateString('ar-SA'),
+                time: visitTime.toLocaleTimeString('ar-SA'),
+                fullDateTime: visitTime.toLocaleString('ar-SA'),
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                platform: navigator.platform,
+                screenResolution: `${screen.width}x${screen.height}`,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                referrer: document.referrer || 'مباشر'
+            };
+            
+            visitors.push(visitorInfo);
+            localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
+            
+            console.log('🔍 تم تسجيل زائر جديد:', visitorInfo.fullDateTime);
+        }
+
         // Admin credentials
         const ADMIN_USERNAME = "Odai admin";
         const ADMIN_PASSWORD = "Od022307!";
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
+            trackVisitor(); // Track every visitor
             initializeApp();
             setupEventListeners();
             loadAIModel();
@@ -1017,16 +1077,18 @@
             }
             
             const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
+            const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
             const usernames = Object.keys(users);
             
             let totalUsers = usernames.length;
             let totalPatients = 0;
             let totalRecordings = 0;
             let activeToday = 0;
+            let visitorsToday = 0;
             
             const today = new Date().toDateString();
             
-            // Calculate statistics
+            // Calculate user statistics
             usernames.forEach(username => {
                 const user = users[username];
                 const patients = user.patients || {};
@@ -1045,15 +1107,23 @@
                     activeToday++;
                 }
             });
+
+            // Calculate visitor statistics
+            visitorsToday = visitors.filter(visitor => {
+                return new Date(visitor.timestamp).toDateString() === today;
+            }).length;
             
             // Update statistics
             document.getElementById('total-users').textContent = totalUsers;
             document.getElementById('total-patients').textContent = totalPatients;
             document.getElementById('total-recordings').textContent = totalRecordings;
+            document.getElementById('total-visitors').textContent = visitors.length;
             document.getElementById('active-today').textContent = activeToday;
+            document.getElementById('visitors-today').textContent = visitorsToday;
             
-            // Load users table
+            // Load tables
             loadUsersTable(users);
+            loadVisitorsTable(visitors);
         }
 
         function loadUsersTable(users) {
@@ -1134,6 +1204,99 @@
             
             loadAdminData();
             alert('تم حذف المستخدم بنجاح');
+        }
+
+        function loadVisitorsTable(visitors) {
+            const tbody = document.getElementById('visitors-table-body');
+            tbody.innerHTML = '';
+            
+            // Sort visitors by timestamp (newest first)
+            const sortedVisitors = visitors.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            sortedVisitors.forEach(visitor => {
+                const row = document.createElement('tr');
+                
+                // Extract platform info
+                const platform = visitor.platform || 'غير محدد';
+                const isMobile = /Mobile|Android|iPhone|iPad/.test(visitor.userAgent);
+                const platformIcon = isMobile ? '📱' : '💻';
+                
+                row.innerHTML = `
+                    <td>
+                        <strong>${visitor.fullDateTime}</strong><br>
+                        <small style="color: #6B7280;">${visitor.date} - ${visitor.time}</small>
+                    </td>
+                    <td>
+                        ${platformIcon} ${platform}<br>
+                        <small style="color: #6B7280;">${visitor.language}</small>
+                    </td>
+                    <td>${visitor.screenResolution}</td>
+                    <td>${visitor.timezone}</td>
+                    <td>
+                        <small style="color: #6B7280;">${visitor.referrer}</small>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            if (visitors.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = '<td colspan="5" style="text-align: center; color: #6B7280;">لا توجد زيارات مسجلة</td>';
+                tbody.appendChild(row);
+            }
+        }
+
+        function exportVisitors() {
+            // التحقق من صلاحيات الأدمن
+            if (!currentUser || currentUser.username !== ADMIN_USERNAME || !currentUser.isAdmin) {
+                alert('غير مسموح لك بتصدير البيانات!');
+                return;
+            }
+            
+            const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
+            
+            if (visitors.length === 0) {
+                alert('لا توجد بيانات زوار للتصدير');
+                return;
+            }
+            
+            // Create CSV content
+            let csvContent = 'التاريخ والوقت,المنصة,الدقة,المنطقة الزمنية,المصدر,المتصفح\n';
+            
+            visitors.forEach(visitor => {
+                const platform = visitor.platform || 'غير محدد';
+                const referrer = visitor.referrer || 'مباشر';
+                const userAgent = visitor.userAgent.substring(0, 50) + '...';
+                
+                csvContent += `"${visitor.fullDateTime}","${platform}","${visitor.screenResolution}","${visitor.timezone}","${referrer}","${userAgent}"\n`;
+            });
+            
+            // Download CSV
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `visitors_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function clearVisitors() {
+            // التحقق من صلاحيات الأدمن
+            if (!currentUser || currentUser.username !== ADMIN_USERNAME || !currentUser.isAdmin) {
+                alert('غير مسموح لك بمسح البيانات!');
+                return;
+            }
+            
+            if (!confirm('هل أنت متأكد من مسح جميع بيانات الزوار؟ هذا الإجراء لا يمكن التراجع عنه!')) {
+                return;
+            }
+            
+            localStorage.removeItem('vetpulse_visitors');
+            loadAdminData();
+            alert('تم مسح جميع بيانات الزوار بنجاح');
         }
 
         // Patient management functions
@@ -1483,5 +1646,7 @@
             loadPatientRecordings();
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9770d5a5a6c532ae',t:'MTc1NjUyMDY5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977e54b1216c32ae',t:'MTc1NjY2MjIxMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
+
+
