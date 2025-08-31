@@ -881,11 +881,39 @@
                 
                 // Create unique identifier for device/user combination
                 const deviceFingerprint = generateDeviceFingerprint();
-                const visitorKey = username ? `user_${username}` : `device_${deviceFingerprint}`;
+                
+                // For logged-in users, create unique key combining username and device
+                // This allows same user from different devices to be tracked separately
+                const visitorKey = username ? `${username}_${deviceFingerprint}` : `guest_${deviceFingerprint}`;
                 
                 console.log('🔍 تتبع الزائر:', { username, deviceFingerprint, visitorKey });
                 
-                // Check if this visitor already exists
+                // Get device type with better mobile detection
+                const userAgent = navigator.userAgent.toLowerCase();
+                let deviceType = 'كمبيوتر';
+                let deviceIcon = '💻';
+                
+                // Enhanced mobile detection
+                const mobileKeywords = ['mobile', 'android', 'iphone', 'ipod', 'blackberry', 'windows phone', 'opera mini', 'iemobile'];
+                const tabletKeywords = ['ipad', 'tablet', 'kindle', 'silk', 'playbook'];
+                
+                if (tabletKeywords.some(keyword => userAgent.includes(keyword))) {
+                    deviceType = 'تابلت';
+                    deviceIcon = '📱';
+                } else if (mobileKeywords.some(keyword => userAgent.includes(keyword))) {
+                    deviceType = 'موبايل';
+                    deviceIcon = '📱';
+                }
+                
+                // Enhanced browser detection
+                let browserName = 'غير محدد';
+                if (userAgent.includes('chrome') && !userAgent.includes('edg')) browserName = 'Chrome';
+                else if (userAgent.includes('firefox')) browserName = 'Firefox';
+                else if (userAgent.includes('safari') && !userAgent.includes('chrome')) browserName = 'Safari';
+                else if (userAgent.includes('edg')) browserName = 'Edge';
+                else if (userAgent.includes('opera')) browserName = 'Opera';
+                
+                // Check if this exact visitor (user + device combination) already exists
                 const existingVisitorIndex = visitors.findIndex(v => v.visitorKey === visitorKey);
                 
                 if (existingVisitorIndex !== -1) {
@@ -893,32 +921,18 @@
                     visitors[existingVisitorIndex].lastVisit = visitTime.toISOString();
                     visitors[existingVisitorIndex].lastVisitFormatted = visitTime.toLocaleString('ar-SA');
                     visitors[existingVisitorIndex].visitCount = (visitors[existingVisitorIndex].visitCount || 1) + 1;
-                    visitors[existingVisitorIndex].timestamp = visitTime.toISOString(); // Update timestamp for sorting
+                    visitors[existingVisitorIndex].timestamp = visitTime.toISOString();
+                    
+                    // Update device info in case it changed
+                    visitors[existingVisitorIndex].deviceType = deviceType;
+                    visitors[existingVisitorIndex].deviceIcon = deviceIcon;
+                    visitors[existingVisitorIndex].browserName = browserName;
+                    visitors[existingVisitorIndex].screenResolution = `${screen.width}x${screen.height}`;
                     
                     localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
-                    console.log('🔄 تحديث زيارة موجودة:', username ? `المستخدم: ${username}` : 'زائر مجهول', `الزيارة رقم: ${visitors[existingVisitorIndex].visitCount}`);
+                    console.log('🔄 تحديث زيارة موجودة:', username ? `المستخدم: ${username}` : 'زائر مجهول', `من ${deviceType}`, `الزيارة رقم: ${visitors[existingVisitorIndex].visitCount}`);
                     return;
                 }
-                
-                // Get device type
-                const userAgent = navigator.userAgent;
-                let deviceType = 'كمبيوتر';
-                let deviceIcon = '💻';
-                
-                if (/Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
-                    deviceType = 'موبايل';
-                    deviceIcon = '📱';
-                } else if (/Tablet|iPad/i.test(userAgent)) {
-                    deviceType = 'تابلت';
-                    deviceIcon = '📱';
-                }
-                
-                // Get browser info
-                let browserName = 'غير محدد';
-                if (userAgent.includes('Chrome')) browserName = 'Chrome';
-                else if (userAgent.includes('Firefox')) browserName = 'Firefox';
-                else if (userAgent.includes('Safari')) browserName = 'Safari';
-                else if (userAgent.includes('Edge')) browserName = 'Edge';
                 
                 // Create new visitor info
                 const visitorInfo = {
@@ -938,66 +952,90 @@
                     deviceIcon: deviceIcon,
                     browserName: browserName,
                     userAgent: navigator.userAgent,
-                    language: navigator.language,
-                    platform: navigator.platform,
+                    language: navigator.language || 'غير محدد',
+                    platform: navigator.platform || 'غير محدد',
                     screenResolution: `${screen.width}x${screen.height}`,
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'غير محدد',
                     referrer: document.referrer || 'مباشر',
-                    visitCount: 1
+                    visitCount: 1,
+                    isNewDevice: true
                 };
                 
                 visitors.push(visitorInfo);
                 localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
                 
-                console.log('✅ تم تسجيل زائر جديد:', username ? `المستخدم: ${username}` : 'زائر مجهول', visitorInfo.fullDateTime);
+                console.log('✅ تم تسجيل زائر جديد:', username ? `المستخدم: ${username}` : 'زائر مجهول', `من ${deviceType}`, visitorInfo.fullDateTime);
                 console.log('📊 إجمالي الزوار الآن:', visitors.length);
                 
             } catch (error) {
                 console.error('❌ خطأ في تتبع الزائر:', error);
-                // Fallback: create simple visitor record
-                const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
-                const simpleVisitor = {
-                    id: Date.now().toString(),
-                    username: username || 'زائر مجهول',
-                    timestamp: new Date().toISOString(),
-                    fullDateTime: new Date().toLocaleString('ar-SA'),
-                    deviceType: 'غير محدد',
-                    browserName: 'غير محدد',
-                    visitCount: 1
-                };
-                visitors.push(simpleVisitor);
-                localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
+                // Enhanced fallback
+                try {
+                    const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
+                    const userAgent = navigator.userAgent.toLowerCase();
+                    let deviceType = 'غير محدد';
+                    
+                    if (userAgent.includes('mobile') || userAgent.includes('android') || userAgent.includes('iphone')) {
+                        deviceType = 'موبايل';
+                    }
+                    
+                    const simpleVisitor = {
+                        id: Date.now().toString(),
+                        visitorKey: `fallback_${Date.now()}`,
+                        username: username || 'زائر مجهول',
+                        timestamp: new Date().toISOString(),
+                        fullDateTime: new Date().toLocaleString('ar-SA'),
+                        deviceType: deviceType,
+                        deviceIcon: deviceType === 'موبايل' ? '📱' : '💻',
+                        browserName: 'غير محدد',
+                        visitCount: 1,
+                        userType: username ? 'مستخدم مسجل' : 'زائر مجهول'
+                    };
+                    visitors.push(simpleVisitor);
+                    localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
+                    console.log('✅ تم حفظ زائر بالطريقة الاحتياطية');
+                } catch (fallbackError) {
+                    console.error('❌ فشل حتى في الطريقة الاحتياطية:', fallbackError);
+                }
             }
         }
 
         // Generate device fingerprint for unique identification
         function generateDeviceFingerprint() {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillText('Device fingerprint', 2, 2);
-            
-            const fingerprint = [
-                navigator.userAgent,
-                navigator.language,
-                screen.width + 'x' + screen.height,
-                screen.colorDepth,
-                new Date().getTimezoneOffset(),
-                navigator.platform,
-                navigator.cookieEnabled,
-                canvas.toDataURL()
-            ].join('|');
-            
-            // Simple hash function
-            let hash = 0;
-            for (let i = 0; i < fingerprint.length; i++) {
-                const char = fingerprint.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash; // Convert to 32-bit integer
+            try {
+                // Create a more robust fingerprint for mobile devices
+                const fingerprint = [
+                    navigator.userAgent || 'unknown',
+                    navigator.language || 'unknown',
+                    screen.width + 'x' + screen.height,
+                    screen.colorDepth || 'unknown',
+                    new Date().getTimezoneOffset(),
+                    navigator.platform || 'unknown',
+                    navigator.cookieEnabled,
+                    navigator.hardwareConcurrency || 'unknown',
+                    navigator.deviceMemory || 'unknown',
+                    window.devicePixelRatio || 'unknown'
+                ].join('|');
+                
+                // Simple hash function that works better across devices
+                let hash = 0;
+                for (let i = 0; i < fingerprint.length; i++) {
+                    const char = fingerprint.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // Convert to 32-bit integer
+                }
+                
+                // Add timestamp component to ensure uniqueness for same device/user
+                const uniqueId = Math.abs(hash).toString(36) + '_' + Date.now().toString(36).slice(-4);
+                
+                console.log('🔑 Device fingerprint generated:', uniqueId);
+                return uniqueId;
+                
+            } catch (error) {
+                console.error('❌ Error generating fingerprint:', error);
+                // Fallback to simple random ID
+                return 'fallback_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36).slice(-4);
             }
-            
-            return Math.abs(hash).toString(36);
         }
 
         // Admin credentials
@@ -1006,6 +1044,10 @@
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 تطبيق VetPulse يبدأ التشغيل...');
+            console.log('📱 نوع الجهاز:', /Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'موبايل' : 'كمبيوتر');
+            console.log('🌐 المتصفح:', navigator.userAgent);
+            
             trackVisitor(); // Track every visitor
             initializeApp();
             setupEventListeners();
@@ -1073,6 +1115,8 @@
             const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
             
             if (users[username] && users[username].password === password) {
+                console.log('✅ تسجيل دخول مستخدم عادي:', username);
+                
                 currentUser = { 
                     username, 
                     ...users[username], 
@@ -1081,7 +1125,12 @@
                 };
                 localStorage.setItem('currentUser', JSON.stringify(currentUser));
                 
-                // Track user login
+                // Update user's last login time
+                users[username].lastLogin = new Date().toISOString();
+                localStorage.setItem('vetpulse_users', JSON.stringify(users));
+                
+                // Track user login with device info
+                console.log('📊 تتبع تسجيل دخول المستخدم:', username);
                 trackVisitor(username);
                 
                 showDashboard();
@@ -1811,5 +1860,5 @@
             loadPatientRecordings();
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977e715b34cb32ae',t:'MTc1NjY2MzM4Ny4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977e7990e3e832ae',t:'MTc1NjY2MzcyMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
