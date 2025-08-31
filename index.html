@@ -873,72 +873,113 @@
         let analysisResults = { noise: 0, human: 0, animal: 0, wheeze: 0 };
         let isAdminMode = false;
 
-        // Visitor tracking function
+        // Visitor tracking function - محسن للموبايل
         function trackVisitor(username = null) {
             try {
+                console.log('🚀 بدء تتبع الزائر:', username || 'زائر مجهول');
+                console.log('📱 معلومات الجهاز:', navigator.userAgent);
+                
                 const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
                 const visitTime = new Date();
                 
-                // Create unique identifier for device/user combination
-                const deviceFingerprint = generateDeviceFingerprint();
-                
-                // For logged-in users, create unique key combining username and device
-                // This allows same user from different devices to be tracked separately
-                const visitorKey = username ? `${username}_${deviceFingerprint}` : `guest_${deviceFingerprint}`;
-                
-                console.log('🔍 تتبع الزائر:', { username, deviceFingerprint, visitorKey });
-                
-                // Get device type with better mobile detection
+                // تحسين كشف نوع الجهاز
                 const userAgent = navigator.userAgent.toLowerCase();
                 let deviceType = 'كمبيوتر';
                 let deviceIcon = '💻';
                 
-                // Enhanced mobile detection
-                const mobileKeywords = ['mobile', 'android', 'iphone', 'ipod', 'blackberry', 'windows phone', 'opera mini', 'iemobile'];
-                const tabletKeywords = ['ipad', 'tablet', 'kindle', 'silk', 'playbook'];
+                // كشف محسن للموبايل والتابلت
+                const mobilePatterns = [
+                    /mobile/i, /android/i, /iphone/i, /ipod/i, /blackberry/i, 
+                    /windows phone/i, /opera mini/i, /iemobile/i, /webos/i,
+                    /palm/i, /symbian/i, /nokia/i, /samsung/i, /htc/i,
+                    /lg/i, /motorola/i, /sony/i, /xiaomi/i, /huawei/i
+                ];
                 
-                if (tabletKeywords.some(keyword => userAgent.includes(keyword))) {
+                const tabletPatterns = [
+                    /ipad/i, /tablet/i, /kindle/i, /silk/i, /playbook/i,
+                    /android(?!.*mobile)/i
+                ];
+                
+                // فحص التابلت أولاً
+                if (tabletPatterns.some(pattern => pattern.test(userAgent))) {
                     deviceType = 'تابلت';
                     deviceIcon = '📱';
-                } else if (mobileKeywords.some(keyword => userAgent.includes(keyword))) {
+                } 
+                // ثم فحص الموبايل
+                else if (mobilePatterns.some(pattern => pattern.test(userAgent))) {
+                    deviceType = 'موبايل';
+                    deviceIcon = '📱';
+                }
+                // فحص إضافي بناءً على حجم الشاشة
+                else if (screen.width <= 768 || window.innerWidth <= 768) {
                     deviceType = 'موبايل';
                     deviceIcon = '📱';
                 }
                 
-                // Enhanced browser detection
-                let browserName = 'غير محدد';
-                if (userAgent.includes('chrome') && !userAgent.includes('edg')) browserName = 'Chrome';
-                else if (userAgent.includes('firefox')) browserName = 'Firefox';
-                else if (userAgent.includes('safari') && !userAgent.includes('chrome')) browserName = 'Safari';
-                else if (userAgent.includes('edg')) browserName = 'Edge';
-                else if (userAgent.includes('opera')) browserName = 'Opera';
+                console.log('🔍 نوع الجهاز المكتشف:', deviceType);
                 
-                // Check if this exact visitor (user + device combination) already exists
-                const existingVisitorIndex = visitors.findIndex(v => v.visitorKey === visitorKey);
+                // كشف المتصفح
+                let browserName = 'غير محدد';
+                if (userAgent.includes('chrome') && !userAgent.includes('edg') && !userAgent.includes('opr')) {
+                    browserName = 'Chrome';
+                } else if (userAgent.includes('firefox')) {
+                    browserName = 'Firefox';
+                } else if (userAgent.includes('safari') && !userAgent.includes('chrome')) {
+                    browserName = 'Safari';
+                } else if (userAgent.includes('edg')) {
+                    browserName = 'Edge';
+                } else if (userAgent.includes('opr') || userAgent.includes('opera')) {
+                    browserName = 'Opera';
+                } else if (userAgent.includes('samsung')) {
+                    browserName = 'Samsung Browser';
+                }
+                
+                // إنشاء معرف فريد للجهاز
+                const deviceFingerprint = generateDeviceFingerprint();
+                
+                // مفتاح فريد لكل مستخدم + جهاز
+                const visitorKey = username ? 
+                    `user_${username}_device_${deviceFingerprint}` : 
+                    `guest_device_${deviceFingerprint}`;
+                
+                console.log('🔑 مفتاح الزائر:', visitorKey);
+                
+                // البحث عن زائر موجود
+                const existingVisitorIndex = visitors.findIndex(v => 
+                    v.visitorKey === visitorKey || 
+                    (v.username === username && v.deviceFingerprint === deviceFingerprint)
+                );
                 
                 if (existingVisitorIndex !== -1) {
-                    // Update existing visitor
-                    visitors[existingVisitorIndex].lastVisit = visitTime.toISOString();
-                    visitors[existingVisitorIndex].lastVisitFormatted = visitTime.toLocaleString('ar-SA');
-                    visitors[existingVisitorIndex].visitCount = (visitors[existingVisitorIndex].visitCount || 1) + 1;
-                    visitors[existingVisitorIndex].timestamp = visitTime.toISOString();
-                    
-                    // Update device info in case it changed
-                    visitors[existingVisitorIndex].deviceType = deviceType;
-                    visitors[existingVisitorIndex].deviceIcon = deviceIcon;
-                    visitors[existingVisitorIndex].browserName = browserName;
-                    visitors[existingVisitorIndex].screenResolution = `${screen.width}x${screen.height}`;
+                    // تحديث زائر موجود
+                    const existingVisitor = visitors[existingVisitorIndex];
+                    existingVisitor.lastVisit = visitTime.toISOString();
+                    existingVisitor.lastVisitFormatted = visitTime.toLocaleString('ar-SA');
+                    existingVisitor.visitCount = (existingVisitor.visitCount || 1) + 1;
+                    existingVisitor.timestamp = visitTime.toISOString();
+                    existingVisitor.deviceType = deviceType;
+                    existingVisitor.deviceIcon = deviceIcon;
+                    existingVisitor.browserName = browserName;
+                    existingVisitor.screenResolution = `${screen.width}x${screen.height}`;
+                    existingVisitor.visitorKey = visitorKey; // تحديث المفتاح
                     
                     localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
-                    console.log('🔄 تحديث زيارة موجودة:', username ? `المستخدم: ${username}` : 'زائر مجهول', `من ${deviceType}`, `الزيارة رقم: ${visitors[existingVisitorIndex].visitCount}`);
+                    console.log('🔄 تم تحديث زائر موجود:', username || 'زائر مجهول', 'من', deviceType, 'الزيارة رقم:', existingVisitor.visitCount);
                     return;
                 }
                 
-                // Create new visitor info
+                // إنشاء زائر جديد
                 const visitorInfo = {
-                    id: Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9),
+                    id: `visitor_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                     visitorKey: visitorKey,
                     deviceFingerprint: deviceFingerprint,
+                    username: username || 'زائر مجهول',
+                    userType: username ? 'مستخدم مسجل' : 'زائر مجهول',
+                    deviceType: deviceType,
+                    deviceIcon: deviceIcon,
+                    browserName: browserName,
+                    
+                    // معلومات التوقيت
                     firstVisit: visitTime.toISOString(),
                     lastVisit: visitTime.toISOString(),
                     timestamp: visitTime.toISOString(),
@@ -946,95 +987,159 @@
                     time: visitTime.toLocaleTimeString('ar-SA'),
                     fullDateTime: visitTime.toLocaleString('ar-SA'),
                     lastVisitFormatted: visitTime.toLocaleString('ar-SA'),
-                    username: username || 'زائر مجهول',
-                    userType: username ? 'مستخدم مسجل' : 'زائر مجهول',
-                    deviceType: deviceType,
-                    deviceIcon: deviceIcon,
-                    browserName: browserName,
+                    
+                    // معلومات تقنية
                     userAgent: navigator.userAgent,
                     language: navigator.language || 'غير محدد',
                     platform: navigator.platform || 'غير محدد',
                     screenResolution: `${screen.width}x${screen.height}`,
+                    windowSize: `${window.innerWidth}x${window.innerHeight}`,
                     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'غير محدد',
                     referrer: document.referrer || 'مباشر',
+                    
+                    // إحصائيات
                     visitCount: 1,
-                    isNewDevice: true
+                    isNewDevice: true,
+                    isMobile: deviceType === 'موبايل' || deviceType === 'تابلت'
                 };
                 
                 visitors.push(visitorInfo);
                 localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
                 
-                console.log('✅ تم تسجيل زائر جديد:', username ? `المستخدم: ${username}` : 'زائر مجهول', `من ${deviceType}`, visitorInfo.fullDateTime);
-                console.log('📊 إجمالي الزوار الآن:', visitors.length);
+                console.log('✅ تم تسجيل زائر جديد بنجاح!');
+                console.log('👤 المستخدم:', username || 'زائر مجهول');
+                console.log('📱 الجهاز:', deviceType);
+                console.log('🌐 المتصفح:', browserName);
+                console.log('📊 إجمالي الزوار:', visitors.length);
+                
+                // إشعار في الكونسول للتأكد من الحفظ
+                setTimeout(() => {
+                    const savedVisitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
+                    console.log('✅ تأكيد الحفظ - عدد الزوار المحفوظين:', savedVisitors.length);
+                }, 100);
                 
             } catch (error) {
                 console.error('❌ خطأ في تتبع الزائر:', error);
-                // Enhanced fallback
+                
+                // نظام احتياطي محسن
                 try {
                     const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
                     const userAgent = navigator.userAgent.toLowerCase();
-                    let deviceType = 'غير محدد';
                     
-                    if (userAgent.includes('mobile') || userAgent.includes('android') || userAgent.includes('iphone')) {
+                    // كشف بسيط للموبايل
+                    let deviceType = 'كمبيوتر';
+                    let deviceIcon = '💻';
+                    
+                    if (userAgent.includes('mobile') || userAgent.includes('android') || 
+                        userAgent.includes('iphone') || userAgent.includes('ipod') ||
+                        screen.width <= 768) {
                         deviceType = 'موبايل';
+                        deviceIcon = '📱';
+                    } else if (userAgent.includes('ipad') || userAgent.includes('tablet')) {
+                        deviceType = 'تابلت';
+                        deviceIcon = '📱';
                     }
                     
-                    const simpleVisitor = {
-                        id: Date.now().toString(),
-                        visitorKey: `fallback_${Date.now()}`,
+                    const fallbackVisitor = {
+                        id: `fallback_${Date.now()}`,
+                        visitorKey: `fallback_${username || 'guest'}_${Date.now()}`,
                         username: username || 'زائر مجهول',
+                        userType: username ? 'مستخدم مسجل' : 'زائر مجهول',
+                        deviceType: deviceType,
+                        deviceIcon: deviceIcon,
+                        browserName: 'غير محدد',
                         timestamp: new Date().toISOString(),
                         fullDateTime: new Date().toLocaleString('ar-SA'),
-                        deviceType: deviceType,
-                        deviceIcon: deviceType === 'موبايل' ? '📱' : '💻',
-                        browserName: 'غير محدد',
+                        screenResolution: `${screen.width}x${screen.height}`,
+                        timezone: 'غير محدد',
                         visitCount: 1,
-                        userType: username ? 'مستخدم مسجل' : 'زائر مجهول'
+                        isMobile: deviceType === 'موبايل' || deviceType === 'تابلت',
+                        isFallback: true
                     };
-                    visitors.push(simpleVisitor);
+                    
+                    visitors.push(fallbackVisitor);
                     localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
-                    console.log('✅ تم حفظ زائر بالطريقة الاحتياطية');
+                    
+                    console.log('✅ تم حفظ الزائر بالنظام الاحتياطي:', deviceType);
+                    
                 } catch (fallbackError) {
-                    console.error('❌ فشل حتى في الطريقة الاحتياطية:', fallbackError);
+                    console.error('❌ فشل النظام الاحتياطي أيضاً:', fallbackError);
                 }
             }
         }
 
-        // Generate device fingerprint for unique identification
+        // Generate device fingerprint for unique identification - محسن للموبايل
         function generateDeviceFingerprint() {
             try {
-                // Create a more robust fingerprint for mobile devices
-                const fingerprint = [
-                    navigator.userAgent || 'unknown',
-                    navigator.language || 'unknown',
-                    screen.width + 'x' + screen.height,
-                    screen.colorDepth || 'unknown',
-                    new Date().getTimezoneOffset(),
-                    navigator.platform || 'unknown',
-                    navigator.cookieEnabled,
-                    navigator.hardwareConcurrency || 'unknown',
-                    navigator.deviceMemory || 'unknown',
-                    window.devicePixelRatio || 'unknown'
-                ].join('|');
+                console.log('🔑 إنشاء بصمة رقمية للجهاز...');
                 
-                // Simple hash function that works better across devices
-                let hash = 0;
-                for (let i = 0; i < fingerprint.length; i++) {
-                    const char = fingerprint.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // Convert to 32-bit integer
+                // جمع معلومات الجهاز بطريقة محسنة
+                const deviceInfo = [];
+                
+                // معلومات أساسية
+                deviceInfo.push(navigator.userAgent || 'unknown');
+                deviceInfo.push(navigator.language || navigator.languages?.[0] || 'unknown');
+                deviceInfo.push(navigator.platform || 'unknown');
+                
+                // معلومات الشاشة
+                deviceInfo.push(`${screen.width}x${screen.height}`);
+                deviceInfo.push(screen.colorDepth || 'unknown');
+                deviceInfo.push(window.devicePixelRatio || 'unknown');
+                
+                // معلومات النظام
+                deviceInfo.push(new Date().getTimezoneOffset().toString());
+                deviceInfo.push(navigator.cookieEnabled ? 'cookies-enabled' : 'cookies-disabled');
+                
+                // معلومات الأداء (إن وجدت)
+                if (navigator.hardwareConcurrency) {
+                    deviceInfo.push(`cores-${navigator.hardwareConcurrency}`);
+                }
+                if (navigator.deviceMemory) {
+                    deviceInfo.push(`memory-${navigator.deviceMemory}`);
                 }
                 
-                // Add timestamp component to ensure uniqueness for same device/user
-                const uniqueId = Math.abs(hash).toString(36) + '_' + Date.now().toString(36).slice(-4);
+                // معلومات إضافية للموبايل
+                if (navigator.maxTouchPoints) {
+                    deviceInfo.push(`touch-${navigator.maxTouchPoints}`);
+                }
                 
-                console.log('🔑 Device fingerprint generated:', uniqueId);
-                return uniqueId;
+                // معلومات الاتصال (إن وجدت)
+                if (navigator.connection) {
+                    deviceInfo.push(`connection-${navigator.connection.effectiveType || 'unknown'}`);
+                }
+                
+                // دمج المعلومات
+                const fingerprintString = deviceInfo.join('|');
+                console.log('📊 معلومات البصمة:', fingerprintString.substring(0, 100) + '...');
+                
+                // إنشاء hash بسيط وموثوق
+                let hash = 0;
+                for (let i = 0; i < fingerprintString.length; i++) {
+                    const char = fingerprintString.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // تحويل إلى 32-bit integer
+                }
+                
+                // تحويل إلى رقم موجب
+                hash = Math.abs(hash);
+                
+                // إضافة مكون زمني للتفرد
+                const timeComponent = Date.now().toString(36).slice(-6);
+                const randomComponent = Math.random().toString(36).substr(2, 4);
+                
+                // إنشاء المعرف النهائي
+                const deviceFingerprint = `${hash.toString(36)}_${timeComponent}_${randomComponent}`;
+                
+                console.log('✅ تم إنشاء البصمة الرقمية:', deviceFingerprint);
+                return deviceFingerprint;
                 
             } catch (error) {
-                console.error('❌ Error generating fingerprint:', error);
-                // Fallback to simple random ID
-                return 'fallback_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36).slice(-4);
+                console.error('❌ خطأ في إنشاء البصمة الرقمية:', error);
+                
+                // نظام احتياطي بسيط
+                const fallbackFingerprint = `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+                console.log('🔄 استخدام البصمة الاحتياطية:', fallbackFingerprint);
+                return fallbackFingerprint;
             }
         }
 
@@ -1047,8 +1152,25 @@
             console.log('🚀 تطبيق VetPulse يبدأ التشغيل...');
             console.log('📱 نوع الجهاز:', /Mobile|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'موبايل' : 'كمبيوتر');
             console.log('🌐 المتصفح:', navigator.userAgent);
+            console.log('📏 حجم الشاشة:', `${screen.width}x${screen.height}`);
+            console.log('🪟 حجم النافذة:', `${window.innerWidth}x${window.innerHeight}`);
             
-            trackVisitor(); // Track every visitor
+            // تتبع كل زائر فور تحميل الصفحة
+            console.log('📊 بدء تتبع الزائر...');
+            trackVisitor(); 
+            
+            // تتبع إضافي بعد ثانية للتأكد
+            setTimeout(() => {
+                console.log('🔄 تتبع إضافي للتأكد...');
+                const currentVisitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
+                console.log('📈 عدد الزوار الحالي:', currentVisitors.length);
+                
+                if (currentVisitors.length === 0) {
+                    console.log('⚠️ لم يتم تسجيل أي زائر، محاولة أخرى...');
+                    trackVisitor();
+                }
+            }, 1000);
+            
             initializeApp();
             setupEventListeners();
             loadAIModel();
@@ -1234,9 +1356,40 @@
                 return;
             }
             
+            console.log('🔍 تحميل بيانات الأدمن...');
+            
             const users = JSON.parse(localStorage.getItem('vetpulse_users') || '{}');
             const visitors = JSON.parse(localStorage.getItem('vetpulse_visitors') || '[]');
             const usernames = Object.keys(users);
+            
+            console.log('👥 عدد المستخدمين:', usernames.length);
+            console.log('👁️ عدد الزوار المحفوظين:', visitors.length);
+            console.log('📊 بيانات الزوار:', visitors);
+            
+            // تشخيص مفصل للزوار
+            if (visitors.length === 0) {
+                console.log('⚠️ لا توجد بيانات زوار محفوظة!');
+                console.log('🔧 محاولة إنشاء زائر تجريبي...');
+                
+                // إنشاء زائر تجريبي للاختبار
+                const testVisitor = {
+                    id: 'test_visitor_' + Date.now(),
+                    username: 'زائر تجريبي',
+                    userType: 'زائر مجهول',
+                    deviceType: 'موبايل',
+                    deviceIcon: '📱',
+                    browserName: 'Chrome',
+                    timestamp: new Date().toISOString(),
+                    fullDateTime: new Date().toLocaleString('ar-SA'),
+                    screenResolution: '375x667',
+                    timezone: 'Asia/Riyadh',
+                    visitCount: 1
+                };
+                
+                visitors.push(testVisitor);
+                localStorage.setItem('vetpulse_visitors', JSON.stringify(visitors));
+                console.log('✅ تم إنشاء زائر تجريبي');
+            }
             
             let totalUsers = usernames.length;
             let totalPatients = 0;
@@ -1268,8 +1421,21 @@
 
             // Calculate visitor statistics
             visitorsToday = visitors.filter(visitor => {
-                return new Date(visitor.timestamp).toDateString() === today;
+                try {
+                    return new Date(visitor.timestamp).toDateString() === today;
+                } catch (e) {
+                    console.log('⚠️ خطأ في تاريخ الزائر:', visitor);
+                    return false;
+                }
             }).length;
+            
+            console.log('📈 الإحصائيات النهائية:');
+            console.log('- المستخدمين:', totalUsers);
+            console.log('- المرضى:', totalPatients);
+            console.log('- التسجيلات:', totalRecordings);
+            console.log('- إجمالي الزوار:', visitors.length);
+            console.log('- النشطين اليوم:', activeToday);
+            console.log('- زوار اليوم:', visitorsToday);
             
             // Update statistics
             document.getElementById('total-users').textContent = totalUsers;
@@ -1860,5 +2026,6 @@
             loadPatientRecordings();
         }
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977e7990e3e832ae',t:'MTc1NjY2MzcyMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'977e8408d2dc32ae',t:'MTc1NjY2NDE1Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
+
